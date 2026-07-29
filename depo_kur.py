@@ -107,7 +107,7 @@ def depo_adi_al() -> tuple[str, str]:
         if re.fullmatch(r"[\w-]+", girdi):
             yaz(f"  → github.com/{girdi}/PicaYT olarak kabul ediyorum.")
             return girdi, "PicaYT"
-        yaz("  Anlayamadım. Örnek: https://github.com/enes/PicaYT")
+        yaz("  Anlayamadım. Örnek: https://github.com/kullanici-adin/PicaYT")
 
 
 def yer_tutuculari_degistir(depo: str) -> None:
