@@ -1,0 +1,75 @@
+name: Kurulum dosyasi uret ve yayinla
+
+# Surum etiketi itilince calisir:  git tag v1.0.1 && git push origin v1.0.1
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:          # elle de tetiklenebilsin
+
+permissions:
+  contents: write             # Release olusturmak icin
+
+env:
+  # Runner'in varsayilan kod sayfasi Turkce'nin noktasiz "ı" harfini
+  # tasimiyor; betikler mesaj yazarken UnicodeEncodeError veriyordu.
+  PYTHONIOENCODING: "utf-8"
+  PYTHONUTF8: "1"
+
+jobs:
+  derle:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Bagimliliklar
+        run: |
+          python -m pip install --upgrade pip
+          pip install yt-dlp mutagen pywin32 pyinstaller
+
+      - name: Surumu etiketten al
+        id: surum
+        shell: bash
+        run: |
+          ETIKET="${GITHUB_REF_NAME#v}"
+          if [ -z "$ETIKET" ] || [ "$ETIKET" = "$GITHUB_REF_NAME" ]; then
+            ETIKET=$(python -c "import yollar; print(yollar.SURUM)")
+          fi
+          echo "surum=$ETIKET" >> "$GITHUB_OUTPUT"
+          echo "Surum: $ETIKET"
+
+      - name: Etiket ile koddaki surum ayni mi
+        shell: bash
+        run: |
+          KOD=$(python -c "import yollar; print(yollar.SURUM)")
+          if [ "$KOD" != "${{ steps.surum.outputs.surum }}" ]; then
+            echo "HATA: yollar.py SURUM=$KOD ama etiket ${{ steps.surum.outputs.surum }}"
+            echo "yollar.py icindeki SURUM'u guncelleyip yeniden etiketle."
+            exit 1
+          fi
+
+      - name: ffmpeg indir
+        run: python ffmpeg_getir.py
+
+      - name: Exe ve kurulum dosyasi uret
+        run: python paketle.py --kurulum
+
+      - name: Kurulum dosyasini sakla
+        uses: actions/upload-artifact@v4
+        with:
+          name: PicaYT-Kurulum
+          path: dagitim/PicaYT-Kurulum-*.exe
+          retention-days: 30
+
+      - name: Release olustur
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: PicaYT ${{ steps.surum.outputs.surum }}
+          files: dagitim/PicaYT-Kurulum-*.exe
+          generate_release_notes: true
+          fail_on_unmatched_files: true

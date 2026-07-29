@@ -1,0 +1,19 @@
+# Sanal ortam ve derleme ciktilari
+.venv/
+derleme/
+dagitim/
+__pycache__/
+*.pyc
+
+# Pakete dahil edilen ffmpeg ikilileri: 194 MB, depoya girmez.
+# Derlemede `python ffmpeg_getir.py` ile indirilir.
+ffmpeg/
+
+# Yerel calisma dosyalari
+.oturum
+ayarlar.json
+gecmis.json
+İndirilenler/
+Indirilenler/
+*.part
+*.ytdl
