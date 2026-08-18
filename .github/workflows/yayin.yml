@@ -78,7 +78,13 @@ jobs:
           fail_on_unmatched_files: true
 
   # macOS derlemesi ayri makinede yapilmak zorunda: PyInstaller capraz
-  # derleme yapamiyor. Apple Silicon ve Intel icin ayri .dmg uretilir.
+  # derleme yapamiyor.
+  #
+  # Yalnizca Apple Silicon uretiliyor. Intel (macos-13) sunuculari saatlerce
+  # sirada bekleyip her yayini geciktiriyordu ve Intel Mac ihtiyaci yok.
+  # Gerekirse geri eklemek icin matrise su satiri koymak yeterli:
+  #     - surucu: macos-13
+  #       mimari: intel
   derle-mac:
     strategy:
       fail-fast: false
@@ -86,8 +92,6 @@ jobs:
         include:
           - surucu: macos-latest      # Apple Silicon (arm64)
             mimari: arm64
-          - surucu: macos-13          # Intel (x86_64)
-            mimari: intel
     runs-on: ${{ matrix.surucu }}
 
     steps:
