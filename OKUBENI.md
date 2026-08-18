@@ -95,6 +95,7 @@ Masaüstü kısayolu için `python kisayol_kur.py`.
 | `paketle.py` | PyInstaller + Inno Setup ile dağıtım çıktısı |
 | `kurulum.iss` | Inno Setup betiği |
 | `ffmpeg_getir.py` | Pakete girecek ffmpeg ikililerini indirir |
+| `qjs_getir.py` | Pakete girecek QuickJS ikilisini indirir |
 | `yayinla.py` | Sürüm yükseltip etiketleyerek yayını tetikler |
 | `ikon_uret.py` | `picayt.ico` üretir (bağımlılıksız) |
 
@@ -129,12 +130,32 @@ PyInstaller'ın içe aktarıcısı `sys.meta_path`in başında durur ve gömül�
 zaman kazandırır. Bu, kendini güncellemeyi imkânsız kılardı. `yollar.py` içindeki
 `_YtDlpBulucu`, diskteki güncel yt-dlp'yi öne alır; gömülü kopya yedek olarak kalır.
 
+### YouTube "n challenge" doğrulaması
+
+YouTube 2026'da her istekte çözülmesi gereken bir JavaScript bilmecesi
+(*n challenge*) getirdi. Çözülemezse YouTube gerçek video/ses akışlarını hiç
+göndermiyor; geriye yalnızca storyboard kalıyor ve yt-dlp bunu
+**"This video is not available"** diye bildiriyor — asıl sebebi söylemeyen,
+videoyu silinmiş gibi gösteren yanıltıcı bir mesaj.
+
+Çözmek için iki parça gerekiyor, ikisi de kurulumun içinde geliyor:
+
+| Parça | Ne işe yarar | Nerede |
+|---|---|---|
+| **QuickJS** (`qjs.exe`, ~2 MB) | JavaScript çalıştırıcısı | `{app}\js\` |
+| **yt-dlp-ejs** | Bilmeceyi çözen betik | exe'ye gömülü |
+
+Böylece çalışma anında internetten ek bileşen indirilmiyor
+(`remote_components` bilerek boş bırakılıyor). Çalıştırıcı bulunamazsa panel
+üstte uyarı bandı gösterir; **Ayarlar → Hakkında** bölümünde hangi
+çalıştırıcının kullanıldığı yazar.
+
+`yollar.js_calistirici_bul()` önce uygulamayla gelen `qjs.exe`'ye, sonra
+sistemde kurulu deno/node/bun'a bakar.
+
 ### Bilinen sınırlar
 
 - Kurulum dosyası imzasız — SmartScreen uyarısı çıkar. Kod imzalama sertifikası
   alınırsa `kurulum.iss` içine `SignTool` eklenebilir.
-- yt-dlp bazı yüksek kaliteli formatları çözmek için bir JavaScript çalıştırıcısı
-  ister. Kurulu değilse çalışır ama ara sıra bir format listeye girmeyebilir:
-  `winget install DenoLand.Deno`
 - Yalnızca Windows. Sunucu ve arayüz platformdan bağımsız; `os.startfile`,
   `explorer /select` ve kısayol üretimi Windows'a özgüdür.

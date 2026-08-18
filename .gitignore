@@ -8,6 +8,7 @@ __pycache__/
 # Pakete dahil edilen ffmpeg ikilileri: 194 MB, depoya girmez.
 # Derlemede `python ffmpeg_getir.py` ile indirilir.
 ffmpeg/
+js/
 
 # Yerel calisma dosyalari
 .oturum

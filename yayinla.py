@@ -90,7 +90,9 @@ def main() -> None:
     calistir("git", "add", "-A", dene=dene)
     calistir("git", "commit", "-m", baslik, dene=dene)
     calistir("git", "tag", "-a", f"v{yeni}", "-m", baslik, dene=dene)
-    calistir("git", "push", dene=dene)
+    # Dalin takip ayari olmayabilir (orn. gecmis yeniden yazildiysa);
+    # hedefi acikca vererek buna bagimli kalmiyoruz.
+    calistir("git", "push", "-u", "origin", "HEAD:main", dene=dene)
     calistir("git", "push", "origin", f"v{yeni}", dene=dene)
 
     if dene:

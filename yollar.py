@@ -17,7 +17,7 @@ import shutil
 import sys
 from pathlib import Path
 
-SURUM = "1.0.0"
+SURUM = "1.1.0"
 
 # Guncellemelerin cekildigi GitHub deposu. Tek dogruluk kaynagi burasi;
 # guncelleyici.py ve kurulum.iss bunu kullanir.
@@ -170,6 +170,49 @@ def ffmpeg_klasor() -> str | None:
     """yt-dlp'ye verilecek klasor; ffmpeg ve ffprobe birlikte bulunur."""
     yol = ffmpeg_bul()
     return str(yol.parent) if yol else None
+
+
+# --------------------------------------------------------------------------- #
+# JavaScript calistiricisi
+# --------------------------------------------------------------------------- #
+
+# YouTube 2026'da "n challenge" adli bir dogrulama getirdi. yt-dlp bunu cozmek
+# icin bir JavaScript calistiricisi ister; yoksa gercek video/ses formatlari
+# hic donmuyor ve hata "This video is not available" olarak gorunuyor — asil
+# sebebi soylemeyen, yaniltici bir mesaj.
+#
+# Uygulamayla birlikte QuickJS (qjs.exe, ~2 MB) gonderiliyor. Cozucu betik de
+# `yt-dlp-ejs` paketiyle gomulu geliyor, yani internetten ek bir sey indirmeye
+# gerek kalmiyor.
+JS_ADAYLARI = (
+    ("quickjs", "qjs.exe"),
+    ("deno", "deno.exe"),
+    ("node", "node.exe"),
+    ("bun", "bun.exe"),
+)
+
+
+def js_calistirici_bul() -> tuple[str, str] | None:
+    """(ad, yol) dondurur. Once uygulamayla gelen kopya, sonra sistemdekiler."""
+    for ad, dosya in JS_ADAYLARI:
+        gomulu = UYGULAMA / "js" / dosya
+        if gomulu.is_file():
+            return ad, str(gomulu)
+
+    for ad, dosya in JS_ADAYLARI:
+        sistemde = shutil.which(Path(dosya).stem)
+        if sistemde:
+            return ad, sistemde
+    return None
+
+
+def js_secenekleri() -> dict:
+    """yt-dlp'ye verilecek calistirici ayari; bulunamazsa bos sozluk."""
+    bulunan = js_calistirici_bul()
+    if not bulunan:
+        return {}
+    ad, yol = bulunan
+    return {ad: {"path": yol}}
 
 
 # --------------------------------------------------------------------------- #

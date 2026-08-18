@@ -626,6 +626,15 @@ function bantKoy(anahtar, tur, metin, eylem) {
 }
 
 function ortamiDegerlendir() {
+  // JS calistiricisi olmadan YouTube dogrulamasi cozulemiyor ve videolar
+  // "bulunamadi" gibi yaniltici bir hatayla basarisiz oluyor.
+  if (!durum.ortam.jsCalistirici) {
+    bantKoy("js", "uyari",
+      "<b>JavaScript çalıştırıcısı yok.</b> YouTube doğrulaması çözülemediği için " +
+      "bazı videolar indirilemez. Ayarlar → Hakkında'dan güncellemeyi dene.");
+  } else {
+    bantlar.delete("js");
+  }
   if (!durum.ortam.ffmpeg) {
     bantKoy("ffmpeg", "uyari",
       "<b>ffmpeg bulunamadı.</b> Video ve ses birleştirme yapılamaz; " +
@@ -674,6 +683,9 @@ function hakkindaCiz() {
   $("#aFfmpeg").textContent = o.ffmpeg ? "bulundu" : "yok";
   $("#aFfmpegYol").textContent = o.ffmpegYol || "Bulunamadı — birleştirme yapılamaz.";
   if (o.ytDlpYol) $("#aYtDlpYol").textContent = o.ytDlpYol;
+  $("#aJs").textContent = o.jsCalistirici || "yok";
+  $("#aJsYol").textContent = o.jsYol
+    || "Bulunamadı — bazı videolar çözülemez. PicaYT'yi güncelle.";
 }
 
 function guncellemeBagla() {

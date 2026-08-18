@@ -44,8 +44,40 @@ VARSAYILAN = {
 }
 
 
+JS_CALISTIRICI = yollar.js_secenekleri()
+
+
 class IptalEdildi(Exception):
     """Progress hook icinden yukselir, indirmeyi durdurur."""
+
+
+class Gunlukcu:
+    """yt-dlp'nin uyarilarini toplar.
+
+    Uyarilar eskiden `no_warnings` ile tamamen bastiriliyordu; bu yuzden
+    "This video is not available" gibi yaniltici bir hata gorunurken asil
+    sebebi soyleyen uyari ("n challenge solving failed" gibi) kayboluyordu.
+    """
+
+    def __init__(self) -> None:
+        self.uyarilar: list[str] = []
+        self.hatalar: list[str] = []
+
+    def debug(self, mesaj: str) -> None:
+        pass
+
+    def info(self, mesaj: str) -> None:
+        pass
+
+    def warning(self, mesaj: str) -> None:
+        temiz = _kacis_temizle(mesaj)
+        if temiz and temiz not in self.uyarilar:
+            self.uyarilar.append(temiz)
+
+    def error(self, mesaj: str) -> None:
+        temiz = _kacis_temizle(mesaj)
+        if temiz and temiz not in self.hatalar:
+            self.hatalar.append(temiz)
 
 
 # --------------------------------------------------------------------------- #
@@ -343,7 +375,8 @@ class Kuyruk:
                 is_.asama = ISLEM_ADLARI.get(ad, "işleniyor")
                 self._bildir(is_)
 
-        secenekler = self._secenekler(is_, ilerleme, son_islem)
+        gunlukcu = Gunlukcu()
+        secenekler = self._secenekler(is_, ilerleme, son_islem, gunlukcu)
         try:
             with yt_dlp.YoutubeDL(secenekler) as ydl:
                 bilgi = yt_dlp.YoutubeDL.sanitize_info(
@@ -370,7 +403,7 @@ class Kuyruk:
                 self._indir(is_)
             else:
                 is_.durum = "hata"
-                is_.hata = _hata_sadelestir(str(hata))
+                is_.hata = _hata_sadelestir(str(hata), gunlukcu.uyarilar)
                 is_.asama = ""
                 is_.hiz = 0
                 self._bildir(is_)
@@ -408,6 +441,7 @@ class Kuyruk:
         is_: Is,
         ilerleme: Callable,
         son_islem: Callable,
+        gunlukcu: "Gunlukcu | None" = None,
     ) -> dict:
         a = self.ayarlar.veri
         hedef = Path(a["hedef"])
@@ -421,7 +455,8 @@ class Kuyruk:
             "progress_hooks": [ilerleme],
             "postprocessor_hooks": [son_islem],
             "quiet": True,
-            "no_warnings": True,
+            "no_warnings": False,      # uyarilar gunlukcuye gidiyor, gizlenmiyor
+            "logger": gunlukcu,
             "noprogress": True,
             "noplaylist": True,
             "consoletitle": False,
@@ -437,6 +472,13 @@ class Kuyruk:
         # arayisina birakilir, kullaniciya da arayuzde uyari cikar.
         if FFMPEG_KLASOR:
             opts["ffmpeg_location"] = FFMPEG_KLASOR
+
+        # YouTube'un "n challenge" dogrulamasi icin JS calistiricisi sart;
+        # cozucu betik yt-dlp-ejs ile gomulu geldigi icin uzaktan bilesen
+        # indirmeye gerek yok.
+        if JS_CALISTIRICI:
+            opts["js_runtimes"] = JS_CALISTIRICI
+            opts["remote_components"] = []
         if a["hizSiniri"]:
             opts["ratelimit"] = int(a["hizSiniri"]) * 1024
 
@@ -532,21 +574,33 @@ ISLEM_ADLARI = {
 # Cozumleme (metadata)
 # --------------------------------------------------------------------------- #
 
-_COZUM_SECENEK = {
-    "quiet": True,
-    "no_warnings": True,
-    "noprogress": True,
-    "skip_download": True,
-    "extract_flat": "in_playlist",
-    "playlistend": 300,
-}
+def _cozum_secenek(gunlukcu: Gunlukcu) -> dict:
+    secenek = {
+        "quiet": True,
+        "no_warnings": False,
+        "logger": gunlukcu,
+        "noprogress": True,
+        "skip_download": True,
+        "extract_flat": "in_playlist",
+        "playlistend": 300,
+    }
+    # Cozumleme de indirme kadar dogrulamaya bagli: calistirici olmadan
+    # video hic acilmiyor.
+    if JS_CALISTIRICI:
+        secenek["js_runtimes"] = JS_CALISTIRICI
+        secenek["remote_components"] = []
+    return secenek
 
 
 def coz(url: str) -> dict:
     """Tek video ya da oynatma listesi bilgisini dondurur."""
-    with yt_dlp.YoutubeDL(_COZUM_SECENEK) as ydl:
-        ham = ydl.extract_info(url, download=False)
-        bilgi = ydl.sanitize_info(ham)
+    gunlukcu = Gunlukcu()
+    try:
+        with yt_dlp.YoutubeDL(_cozum_secenek(gunlukcu)) as ydl:
+            ham = ydl.extract_info(url, download=False)
+            bilgi = ydl.sanitize_info(ham)
+    except yt_dlp.utils.DownloadError as hata:
+        raise RuntimeError(_hata_sadelestir(str(hata), gunlukcu.uyarilar)) from hata
 
     if bilgi.get("_type") == "playlist":
         ogeler = []
@@ -646,14 +700,33 @@ def _gecici_hata(metin: str) -> bool:
     return any(im in kucuk for im in _GECICI)
 
 
-def _hata_sadelestir(metin: str) -> str:
-    metin = re.sub(r"\x1b\[[0-9;]*m", "", metin)
-    metin = metin.replace("ERROR: ", "").strip()
+def _kacis_temizle(metin: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*m", "", str(metin)).strip()
+
+
+def _hata_sadelestir(metin: str, uyarilar: list[str] | None = None) -> str:
+    metin = _kacis_temizle(metin).replace("ERROR: ", "")
+    uyarilar = uyarilar or []
+    tum = metin + " " + " ".join(uyarilar)
+
+    # YouTube'un dogrulamasi cozulemediginde hata "This video is not available"
+    # olarak geliyor; asil sebep uyarilarda saklı. Kullaniciya dogrusunu soyle.
+    if "challenge" in tum.lower() or "JavaScript runtime" in tum:
+        if not JS_CALISTIRICI:
+            return ("YouTube doğrulaması çözülemedi: JavaScript çalıştırıcısı "
+                    "bulunamadı. PicaYT'yi güncelle (Ayarlar → Hakkında).")
+        return ("YouTube doğrulaması çözülemedi. yt-dlp'yi güncelleyip "
+                "(Ayarlar → Hakkında) paneli yeniden aç.")
+
     if "Private video" in metin:
         return "Video gizli, indirilemiyor."
     if "Video unavailable" in metin:
         return "Video kaldırılmış veya bu bölgede yok."
-    if "Sign in to confirm" in metin or "age" in metin.lower() and "restrict" in metin.lower():
+    if "DRM" in metin:
+        return "Video DRM korumalı, indirilemez."
+    if "members-only" in metin.lower() or "join this channel" in metin.lower():
+        return "Yalnızca kanal üyelerine açık video."
+    if "Sign in to confirm" in metin or ("age" in metin.lower() and "restrict" in metin.lower()):
         return "Yaş sınırlı video; oturum gerekiyor."
     if "ffmpeg" in metin.lower():
         return "ffmpeg hatası: " + metin[:200]

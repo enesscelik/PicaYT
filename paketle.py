@@ -63,6 +63,11 @@ def ffmpeg_hazirla() -> None:
     calistir([sys.executable, str(KOK / "ffmpeg_getir.py")])
 
 
+def quickjs_hazirla() -> None:
+    adim("QuickJS")
+    calistir([sys.executable, str(KOK / "qjs_getir.py")])
+
+
 def ikon_hazirla() -> None:
     if not (KOK / "picayt.ico").is_file():
         adim("ikon")
@@ -89,6 +94,9 @@ def exe_uret() -> None:
         # Calisma aninda yollar.py diskteki guncel surumu one aliyor;
         # gomulu kopya yedek olarak kaliyor.
         "--collect-submodules", "yt_dlp",
+        # YouTube dogrulamasini cozen betik; gomulu geldigi icin calisma
+        # aninda internetten bilesen indirmeye gerek kalmiyor.
+        "--collect-all", "yt_dlp_ejs",
         "--hidden-import", "mutagen",
         "--hidden-import", "tkinter",
         "--hidden-import", "tkinter.filedialog",
@@ -120,6 +128,14 @@ def ffmpeg_koy() -> None:
         print(f"  {ad} · {(hedef / ad).stat().st_size / 1048576:.0f} MB")
 
 
+def quickjs_koy() -> None:
+    adim("QuickJS kopyalama")
+    hedef = CIKTI / "js"
+    hedef.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(KOK / "js" / "qjs.exe", hedef / "qjs.exe")
+    print(f"  qjs.exe · {(hedef / 'qjs.exe').stat().st_size / 1048576:.1f} MB")
+
+
 def belgeler_koy() -> None:
     for ad in ("OKUBENI.md", "LISANS.txt"):
         if (KOK / ad).is_file():
@@ -148,9 +164,11 @@ def ozet() -> None:
 def main() -> None:
     ikon_hazirla()
     ffmpeg_hazirla()
+    quickjs_hazirla()
     exe_uret()
     ytdlp_koy()
     ffmpeg_koy()
+    quickjs_koy()
     belgeler_koy()
     if "--kurulum" in sys.argv:
         kurulum_uret()

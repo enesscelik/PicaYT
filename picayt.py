@@ -130,6 +130,8 @@ class Sunucu(BaseHTTPRequestHandler):
                     "altyaziAraci": yollar.altyazi_araci_var(),
                     "ytDlp": motor.yt_dlp.version.__version__,
                     "ytDlpYol": str(Path(motor.yt_dlp.__file__).parent),
+                    "jsCalistirici": (yollar.js_calistirici_bul() or ("", ""))[0],
+                    "jsYol": (yollar.js_calistirici_bul() or ("", ""))[1],
                 },
                 **KUYRUK.durum(),
             })

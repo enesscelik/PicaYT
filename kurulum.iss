@@ -63,6 +63,8 @@ Source: "dagitim\PicaYT\ffmpeg\*"; DestDir: "{app}\ffmpeg"; \
   Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "dagitim\PicaYT\paketler\*"; DestDir: "{app}\paketler"; \
   Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dagitim\PicaYT\js\*"; DestDir: "{app}\js"; \
+  Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "OKUBENI.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
 
 [Icons]
