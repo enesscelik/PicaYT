@@ -37,6 +37,7 @@ VARSAYILAN = {
     "altyaziDiller": ["tr", "en"],
     "otomatikAltyazi": True,
     "hizSiniri": 0,          # KB/s, 0 = sinirsiz
+    "nazikMod": True,        # indirmeler arasi kisa bekleme
     "tema": "koyu",
     "sonKalite": "1080",
     "sonBicim": "video",
@@ -392,15 +393,23 @@ class Kuyruk:
                     is_.asama = ""
                     is_.hiz = 0
                     self._bildir(is_)
-            elif is_.deneme < 2 and _gecici_hata(str(hata)):
-                # YouTube ara sira 403 / kopuk baglanti veriyor; yeni bir
-                # cozumlemeyle taze baglanti alip kendiliginden tekrar dener.
+            elif is_.deneme < len(YENIDEN_BEKLEME) and _gecici_hata(str(hata)):
+                # YouTube ara sira 403 / kopuk baglanti veriyor. Cogu zaman
+                # hiz kisitlamasi: pes pese indirmede tetikleniyor ve kisa
+                # surede geciyor. Her denemede daha uzun beklenir.
+                bekleme = YENIDEN_BEKLEME[is_.deneme]
                 is_.deneme += 1
-                is_.asama = f"yeniden deneniyor ({is_.deneme}/2)"
+                is_.asama = (f"YouTube geri çevirdi, {bekleme} sn sonra "
+                             f"yeniden denenecek ({is_.deneme}/{len(YENIDEN_BEKLEME)})")
                 is_.yuzde = 0
+                is_.hiz = 0
                 self._bildir(is_)
-                time.sleep(2.5)
-                self._indir(is_)
+                for _ in range(bekleme):
+                    if is_._iptal:
+                        break
+                    time.sleep(1)
+                if not is_._iptal:
+                    self._indir(is_)
             else:
                 is_.durum = "hata"
                 is_.hata = _hata_sadelestir(str(hata), gunlukcu.uyarilar)
@@ -465,7 +474,10 @@ class Kuyruk:
             "continuedl": True,
             "retries": 10,
             "fragment_retries": 10,
-            "concurrent_fragment_downloads": 5,
+            # 5 paralel parca, es zamanli isle carpilinca YouTube'un hiz
+            # kisitlamasini tetikleyebiliyordu; 3 hem yeterince hizli hem
+            # daha az dikkat cekiyor.
+            "concurrent_fragment_downloads": 3,
             "ignoreerrors": False,
             "overwrites": False,
         }
@@ -482,6 +494,14 @@ class Kuyruk:
             opts["remote_components"] = []
         if a["hizSiniri"]:
             opts["ratelimit"] = int(a["hizSiniri"]) * 1024
+
+        # Tek tek cok sayida video indirirken YouTube'un hiz kisitlamasini
+        # tetikleyen sey, isteklerin arka arkaya yapistirilmasi. Birkac
+        # saniyelik rastgele bekleme tek indirmede fark ettirmiyor ama toplu
+        # islerde 403'lerin onune geciyor.
+        if a["nazikMod"]:
+            opts["sleep_interval"] = 1
+            opts["max_sleep_interval"] = 4
 
         if is_.bicim in ("mp3", "m4a"):
             opts["format"] = "bestaudio/best"
@@ -689,6 +709,10 @@ def _dosya_adi_temizle(ad: str) -> str:
     return re.sub(r'[<>:"/\\|?*]+', "-", ad).strip(" .")[:120] or "liste"
 
 
+# Yeniden deneme aralari (saniye). Hiz kisitlamasi genelde kisa surdugu icin
+# artan bekleme, sabit kisa aralardan cok daha etkili.
+YENIDEN_BEKLEME = (5, 20, 60)
+
 _GECICI = (
     "403", "429", "500", "502", "503", "timed out", "timeout",
     "connection", "reset by peer", "fragment", "incomplete read",
@@ -718,6 +742,14 @@ def _hata_sadelestir(metin: str, uyarilar: list[str] | None = None) -> str:
                     "bulunamadı. PicaYT'yi güncelle (Ayarlar → Hakkında).")
         return ("YouTube doğrulaması çözülemedi. yt-dlp'yi güncelleyip "
                 "(Ayarlar → Hakkında) paneli yeniden aç.")
+
+    # Israrli 403 neredeyse her zaman hiz kisitlamasi; kullaniciya ne
+    # yapacagini soyle, ham HTTP hatasini degil.
+    if "403" in metin or "429" in metin:
+        return ("YouTube isteği geri çevirdi (403). Genellikle çok hızlı "
+                "art arda indirmede olur ve kısa sürede geçer. Birkaç dakika "
+                "bekleyip yeniden dene; sık oluyorsa Ayarlar'dan eş zamanlı "
+                "indirmeyi 1'e düşür.")
 
     if "Private video" in metin:
         return "Video gizli, indirilemiyor."

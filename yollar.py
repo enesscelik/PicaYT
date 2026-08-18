@@ -17,7 +17,7 @@ import shutil
 import sys
 from pathlib import Path
 
-SURUM = "1.2.0"
+SURUM = "1.2.1"
 
 # Guncellemelerin cekildigi GitHub deposu. Tek dogruluk kaynagi burasi;
 # guncelleyici.py ve kurulum.iss bunu kullanir.

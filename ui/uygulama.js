@@ -730,6 +730,7 @@ function ayarlariCiz() {
   $("#aSablon").value = a.sablon;
   $("#aDiller").value = (a.altyaziDiller || []).join(", ");
   $("#aOtoAltyazi").checked = !!a.otomatikAltyazi;
+  $("#aNazik").checked = !!a.nazikMod;
   $("#aKapak").checked = !!a.kucukresimGom;
   $("#aUstveri").checked = !!a.ustveriGom;
   $("#aListeKlasor").checked = !!a.playlistKlasor;
@@ -758,6 +759,7 @@ function ayarlariBagla() {
   $("#aDiller").onchange = (e) => ayarYaz({
     altyaziDiller: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) });
   $("#aOtoAltyazi").onchange = (e) => ayarYaz({ otomatikAltyazi: e.target.checked });
+  $("#aNazik").onchange = (e) => ayarYaz({ nazikMod: e.target.checked });
   $("#aKapak").onchange = (e) => ayarYaz({ kucukresimGom: e.target.checked });
   $("#aUstveri").onchange = (e) => ayarYaz({ ustveriGom: e.target.checked });
   $("#aListeKlasor").onchange = (e) => ayarYaz({ playlistKlasor: e.target.checked });
