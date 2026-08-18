@@ -28,18 +28,22 @@ Hangisi olduğunu bilmiyorsan:  → **Bu Mac Hakkında**. "Apple M…" yazıyors
 
 Kalıbı aç, **PicaYT**'yi **Applications** klasörüne sürükle.
 
-> **İlk açılışta önemli:** Uygulama imzasız olduğu için macOS
-> *"PicaYT hasarlı, Çöp Kutusu'na taşımalısınız"* diyebilir. Silme —
-> Applications klasöründe PicaYT'ye **sağ tıkla → Aç**, sonra çıkan pencerede
-> yine **Aç** de. Bunu yalnızca bir kez yapman yeterli, sonraki açılışlar normal.
+> **İlk açılışta:** macOS *"PicaYT hasarlı, Çöp Kutusu'na taşımalısınız"* diyebilir.
+> **Silme.** Uygulamada bir sorun yok; macOS internetten inen imzasız uygulamalara
+> bir karantina etiketi koyuyor. Applications'a sürükledikten sonra Terminal'de
+> şunu çalıştır, tek seferlik:
 >
-> Yine de açılmazsa Terminal'de:
 > ```
 > xattr -dr com.apple.quarantine /Applications/PicaYT.app
 > ```
 >
-> Bu uyarı, Apple'ın geliştirici sertifikası (yılda 99 $) alınmadığı için çıkıyor;
-> uygulamada bir sorun olduğu anlamına gelmiyor.
+> (Terminal: ⌘+Boşluk → "Terminal" yaz → Enter. Komutu yapıştır, Enter'a bas.)
+>
+> Daha hafif bir uyarı ("geliştirici doğrulanamadı") çıkarsa **sağ tık → Aç**,
+> sonra yine **Aç** demek yeterli.
+>
+> Kalıcı çözümü Apple geliştirici sertifikası (yılda 99 $) alıp uygulamayı
+> notarize etmek.
 
 ### Kullanım
 

@@ -165,6 +165,42 @@ def belgeler_koy() -> None:
             shutil.copy2(KOK / ad, CIKTI / ad)
 
 
+def imzala() -> None:
+    """`.app` paketini yeniden imzalar (macOS).
+
+    PyInstaller uygulamayi kurarken kendi imzasini atiyor. Biz ffmpeg, qjs ve
+    yt-dlp'yi bundan SONRA `Contents/Resources` altina kopyalayinca o imza
+    gecersiz kaliyor ve macOS uygulamayi "hasar gormus" sayip hic acmiyor —
+    Apple Silicon'da imzasiz ikili calistirilamiyor.
+
+    `--sign -` ad-hoc imza demek: Apple gelistirici hesabi gerektirmiyor,
+    ucretsiz. Gatekeeper uyarisini kaldirmaz ama "hasarli" hatasini cozer.
+    """
+    adim("Ad-hoc imzalama")
+
+    # Once ice gomulu yardimci ikililer, sonra paketin kendisi imzalanir.
+    yardimcilar = [
+        p for p in (YARDIMCI_KOK / "ffmpeg").glob("*") if p.is_file()
+    ] + [
+        p for p in (YARDIMCI_KOK / "js").glob("*") if p.is_file()
+    ]
+    for ikili in yardimcilar:
+        calistir(["codesign", "--force", "--sign", "-",
+                  "--timestamp=none", str(ikili)])
+        print(f"  imzalandı: {ikili.name}")
+
+    calistir(["codesign", "--force", "--deep", "--sign", "-",
+              "--timestamp=none", str(CIKTI)])
+    print(f"  imzalandı: {CIKTI.name}")
+
+    # Imza gecerli mi, hemen dogrula: bozuksa DMG uretmenin anlami yok.
+    sonuc = subprocess.run(["codesign", "--verify", "--verbose=2", str(CIKTI)],
+                           capture_output=True, text=True)
+    if sonuc.returncode != 0:
+        raise SystemExit("İmza doğrulanamadı:\n" + (sonuc.stderr or sonuc.stdout))
+    print("  doğrulandı")
+
+
 def dmg_uret() -> None:
     """macOS icin surukle-birak kurulumlu .dmg uretir."""
     adim("DMG")
@@ -211,6 +247,9 @@ def main() -> None:
     ffmpeg_koy()
     quickjs_koy()
     belgeler_koy()
+    if MACOS:
+        # Yardimcilar kopyalandiktan SONRA imzalanmali, yoksa imza gecersiz.
+        imzala()
     if "--kurulum" in sys.argv:
         dmg_uret() if MACOS else kurulum_uret()
     ozet()
