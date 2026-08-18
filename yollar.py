@@ -17,7 +17,7 @@ import shutil
 import sys
 from pathlib import Path
 
-SURUM = "1.2.3"
+SURUM = "1.2.4"
 
 # Guncellemelerin cekildigi GitHub deposu. Tek dogruluk kaynagi burasi;
 # guncelleyici.py ve kurulum.iss bunu kullanir.
@@ -82,6 +82,24 @@ def _sertifikalari_ayarla() -> None:
 _sertifikalari_ayarla()
 
 
+def yardimci_kokler() -> list[Path]:
+    """ffmpeg / qjs / paketler gibi birlikte gonderilen dosyalarin yerleri.
+
+    macOS'ta uygulama bir `.app` paketi: calistirilabilir dosya
+    `PicaYT.app/Contents/MacOS/` altinda, kaynaklar ise `Contents/Resources`
+    altinda durur. Windows'ta ikisi de exe'nin yanindadir.
+
+    Not: bu islev `indirilen_ytdlp()` tarafindan modul yuklenirken cagriliyor,
+    bu yuzden dosyanin basinda tanimli olmali.
+    """
+    kokler = [UYGULAMA]
+    if MACOS and DONMUS:
+        kokler.append(UYGULAMA.parent / "Resources")
+    if KAYNAK not in kokler:
+        kokler.append(KAYNAK)
+    return kokler
+
+
 def surum_anahtari(metin: str) -> tuple:
     """'2026.07.04' gibi surumleri karsilastirilabilir hale getirir."""
     parcalar = []
@@ -103,7 +121,9 @@ def indirilen_ytdlp() -> Path | None:
     calismazdi.
     """
     adaylar: list[Path] = []
-    for kok in (PAKETLER, UYGULAMA / "paketler"):
+    # macOS'ta uygulamayla gelen kopya Contents/Resources altinda duruyor;
+    # yalnizca UYGULAMA'ya bakmak onu gormuyordu.
+    for kok in [PAKETLER] + [k / "paketler" for k in yardimci_kokler()]:
         if kok.is_dir():
             adaylar += [p for p in kok.glob("ytdlp-*") if (p / "yt_dlp").is_dir()]
     if not adaylar:
@@ -145,21 +165,6 @@ def varsayilan_indirme() -> Path:
         if aday.is_dir():
             return aday / "PicaYT"
     return Path.home() / "PicaYT"
-
-
-def yardimci_kokler() -> list[Path]:
-    """ffmpeg / qjs gibi birlikte gonderilen ikililerin aranacagi klasorler.
-
-    macOS'ta uygulama bir `.app` paketi: calistirilabilir dosya
-    `PicaYT.app/Contents/MacOS/` altinda, kaynaklar ise `Contents/Resources`
-    altinda durur. Windows'ta ikisi de exe'nin yanindadir.
-    """
-    kokler = [UYGULAMA]
-    if MACOS and DONMUS:
-        kokler.append(UYGULAMA.parent / "Resources")
-    if KAYNAK not in kokler:
-        kokler.append(KAYNAK)
-    return kokler
 
 
 # --------------------------------------------------------------------------- #

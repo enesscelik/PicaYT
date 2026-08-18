@@ -87,13 +87,27 @@ def ytdlp_guncelle() -> dict:
     gecici = yollar.PAKETLER / f".indirilen-{son}.whl"
     try:
         _indir(tekerlek["url"], gecici)
-        if hedef.is_dir():
-            shutil.rmtree(hedef, ignore_errors=True)
+
+        # Yarim inen dosya, acilirken "error -3 while decompressing data"
+        # gibi anlasilmaz bir zlib hatasi veriyor. Once boyutu ve arsivin
+        # butunlugunu dogrula; bozuksa temiz bir mesajla vazgec.
+        beklenen = int(tekerlek.get("size") or 0)
+        inen = gecici.stat().st_size
+        if beklenen and inen != beklenen:
+            raise OSError(f"dosya eksik indi ({inen}/{beklenen} bayt)")
+
         with zipfile.ZipFile(gecici) as arsiv:
+            if arsiv.testzip() is not None:
+                raise zipfile.BadZipFile("arşiv bozuk")
+            if hedef.is_dir():
+                shutil.rmtree(hedef, ignore_errors=True)
             arsiv.extractall(hedef)
     except Exception as hata:                    # noqa: BLE001
         shutil.rmtree(hedef, ignore_errors=True)
-        return {"durum": "hata", "mesaj": f"İndirme başarısız: {hata}"}
+        return {"durum": "hata",
+                "mesaj": f"yt-dlp indirilemedi: {hata}. Bağlantını kontrol "
+                         f"edip tekrar dene; uygulama mevcut sürümle çalışmaya "
+                         f"devam eder."}
     finally:
         gecici.unlink(missing_ok=True)
 
