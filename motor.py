@@ -38,6 +38,7 @@ VARSAYILAN = {
     "otomatikAltyazi": True,
     "hizSiniri": 0,          # KB/s, 0 = sinirsiz
     "nazikMod": True,        # indirmeler arasi kisa bekleme
+    "cerezTarayici": "",     # "", "chrome", "edge", "firefox", "brave", "safari"
     "tema": "koyu",
     "sonKalite": "1080",
     "sonBicim": "video",
@@ -502,6 +503,13 @@ class Kuyruk:
         if a["nazikMod"]:
             opts["sleep_interval"] = 1
             opts["max_sleep_interval"] = 4
+
+        # Israrli 403'e karsi en etkili care: istekleri oturum acmis gercek
+        # kullanici gibi gondermek. Cerezler yalnizca yerelde okunur, hicbir
+        # yere gonderilmez. Varsayilan kapali: indirmeleri YouTube hesabina
+        # baglar ve hesap kisitlamasi riski dogurur.
+        if a["cerezTarayici"]:
+            opts["cookiesfrombrowser"] = (a["cerezTarayici"],)
 
         if is_.bicim in ("mp3", "m4a"):
             opts["format"] = "bestaudio/best"

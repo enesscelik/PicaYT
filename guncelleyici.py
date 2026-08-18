@@ -150,6 +150,17 @@ def uygulama_son_surum(sessiz: bool = True) -> dict:
         }
     try:
         veri = _json_al(GITHUB_SON)
+    except urllib.error.HTTPError as hata:
+        if sessiz:
+            return {}
+        if hata.code in (403, 429):
+            # GitHub, oturum acmamis istekleri IP basina saatte 60 ile
+            # sinirliyor. Uygulamanin arizasi degil, biraz beklemek yeterli.
+            return {"hata": "GitHub sorgu sınırına takıldı (saatte 60). "
+                            "Birkaç dakika sonra tekrar dene."}
+        if hata.code == 404:
+            return {"hata": "Depoda henüz yayınlanmış bir sürüm yok."}
+        return {"hata": f"Sürüm bilgisi alınamadı (HTTP {hata.code})."}
     except Exception as hata:                    # noqa: BLE001
         return {} if sessiz else {"hata": f"Sürüm bilgisi alınamadı: {hata}"}
 

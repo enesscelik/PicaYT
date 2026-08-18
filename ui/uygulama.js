@@ -9,6 +9,7 @@ const $$ = (s, k = document) => [...k.querySelectorAll(s)];
 const durum = {
   ayarlar: {},
   ortam: { ffmpeg: true, altyaziAraci: false, surum: "", ytDlp: "" },
+  yeniSurum: "",
   isler: new Map(),      // kimlik -> is
   kartlar: new Map(),    // kimlik -> {kok, ...}
   gecmis: [],
@@ -656,6 +657,8 @@ function guncellemeBildirimi(veri) {
 }
 
 function yeniSurumBandi(veri) {
+  durum.yeniSurum = veri.surum;
+  hakkindaCiz();
   bantKoy("surum", "bilgi",
     `<b>PicaYT ${kacis(veri.surum)} yayınlandı.</b> ` +
     (veri.notlar ? kacis(veri.notlar.split("\n")[0]).slice(0, 120) : "Yeni sürüme geçebilirsin."),
@@ -680,7 +683,14 @@ function yeniSurumBandi(veri) {
 
 function hakkindaCiz() {
   const o = durum.ortam;
-  $("#aSurum").textContent = o.surum || "—";
+  // Kurulu surum ile yayindaki surumu birlikte goster; yalniz kurulu olani
+  // gostermek "guncelleme buldu ama bir sey degismedi" izlenimi veriyordu.
+  $("#aSurum").textContent = durum.yeniSurum
+    ? `${o.surum} → ${durum.yeniSurum} var`
+    : (o.surum || "—");
+  $("#surumNot").textContent = durum.yeniSurum
+    ? "Yeni sürüm hazır — yukarıdaki banttan güncelleyebilirsin."
+    : "Kurulu sürüm. Panel açılışta yeni sürüm olup olmadığına bakar.";
   $("#aYtDlp").textContent = o.ytDlp || "—";
   $("#aFfmpeg").textContent = o.ffmpeg ? "bulundu" : "yok";
   $("#aFfmpegYol").textContent = o.ffmpegYol || "Bulunamadı — birleştirme yapılamaz.";
@@ -731,6 +741,7 @@ function ayarlariCiz() {
   $("#aDiller").value = (a.altyaziDiller || []).join(", ");
   $("#aOtoAltyazi").checked = !!a.otomatikAltyazi;
   $("#aNazik").checked = !!a.nazikMod;
+  $("#aCerez").value = a.cerezTarayici || "";
   $("#aKapak").checked = !!a.kucukresimGom;
   $("#aUstveri").checked = !!a.ustveriGom;
   $("#aListeKlasor").checked = !!a.playlistKlasor;
@@ -760,6 +771,10 @@ function ayarlariBagla() {
     altyaziDiller: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) });
   $("#aOtoAltyazi").onchange = (e) => ayarYaz({ otomatikAltyazi: e.target.checked });
   $("#aNazik").onchange = (e) => ayarYaz({ nazikMod: e.target.checked });
+  $("#aCerez").onchange = (e) => {
+    ayarYaz({ cerezTarayici: e.target.value });
+    if (e.target.value) bildir("Tarayıcı oturumu kullanılacak. Tarayıcının kapalı olması gerekebilir.");
+  };
   $("#aKapak").onchange = (e) => ayarYaz({ kucukresimGom: e.target.checked });
   $("#aUstveri").onchange = (e) => ayarYaz({ ustveriGom: e.target.checked });
   $("#aListeKlasor").onchange = (e) => ayarYaz({ playlistKlasor: e.target.checked });

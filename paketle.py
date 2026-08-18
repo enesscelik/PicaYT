@@ -111,6 +111,9 @@ def exe_uret() -> None:
         # YouTube dogrulamasini cozen betik; gomulu geldigi icin calisma
         # aninda internetten bilesen indirmeye gerek kalmiyor.
         "--collect-all", "yt_dlp_ejs",
+        # CA sertifikalari: macOS/Linux'ta sistem deposu yedegi olmadigi icin
+        # bunlar olmadan her HTTPS istegi SSL hatasiyla cokuyor.
+        "--collect-all", "certifi",
         "--hidden-import", "mutagen",
         "--hidden-import", "tkinter",
         "--hidden-import", "tkinter.filedialog",

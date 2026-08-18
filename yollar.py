@@ -17,7 +17,7 @@ import shutil
 import sys
 from pathlib import Path
 
-SURUM = "1.2.2"
+SURUM = "1.2.3"
 
 # Guncellemelerin cekildigi GitHub deposu. Tek dogruluk kaynagi burasi;
 # guncelleyici.py ve kurulum.iss bunu kullanir.
@@ -56,6 +56,30 @@ INDIRME_ONBELLEK = VERI / "gecici"    # guncelleme dosyalari
 
 for _klasor in (VERI, PAKETLER):
     _klasor.mkdir(parents=True, exist_ok=True)
+
+
+def _sertifikalari_ayarla() -> None:
+    """HTTPS dogrulamasi icin CA paketini isletim sisteminden bagimsiz kilar.
+
+    Windows'ta Python sertifikalari sistem deposundan alabiliyor; macOS ve
+    Linux'ta paketlenmis uygulamanin boyle bir yedegi yok ve her HTTPS istegi
+    "SSL: CERTIFICATE_VERIFY_FAILED" ile cokuyor. certifi'nin paketini
+    ortam degiskeniyle tanitmak hem urllib'i hem yt-dlp'yi kapsiyor.
+    """
+    try:
+        import certifi
+    except ImportError:
+        return
+    try:
+        paket = certifi.where()
+    except Exception:                            # noqa: BLE001
+        return
+    if Path(paket).is_file():
+        os.environ.setdefault("SSL_CERT_FILE", paket)
+        os.environ.setdefault("REQUESTS_CA_BUNDLE", paket)
+
+
+_sertifikalari_ayarla()
 
 
 def surum_anahtari(metin: str) -> tuple:
