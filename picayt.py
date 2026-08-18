@@ -241,14 +241,35 @@ class Sunucu(BaseHTTPRequestHandler):
 # Isletim sistemi islemleri
 # --------------------------------------------------------------------------- #
 
+def _sessiz_bayrak() -> int:
+    """Alt surec acarken konsol penceresi cikmasin (yalniz Windows'ta anlamli)."""
+    return getattr(subprocess, "CREATE_NO_WINDOW", 0) if yollar.WINDOWS else 0
+
+
+def _ac(hedef: Path) -> None:
+    """Dosyayi ya da klasoru isletim sisteminin varsayilan uygulamasiyla acar."""
+    if yollar.WINDOWS:
+        os.startfile(str(hedef))                # noqa: S606
+    elif yollar.MACOS:
+        subprocess.Popen(["open", str(hedef)])
+    else:
+        subprocess.Popen(["xdg-open", str(hedef)])
+
+
 def _klasor_ac(yol: str) -> dict:
     hedef = Path(yol) if yol else Path(AYARLAR["hedef"])
     try:
         if hedef.is_file():
-            subprocess.Popen(["explorer", "/select,", str(hedef)])
+            # Dosyayi klasorde secili gostermek her sistemde ayri komut
+            if yollar.WINDOWS:
+                subprocess.Popen(["explorer", "/select,", str(hedef)])
+            elif yollar.MACOS:
+                subprocess.Popen(["open", "-R", str(hedef)])
+            else:
+                _ac(hedef.parent)
         else:
             hedef.mkdir(parents=True, exist_ok=True)
-            os.startfile(str(hedef))            # noqa: S606
+            _ac(hedef)
         return {"tamam": True}
     except OSError as hata:
         return {"hata": str(hata)}
@@ -259,7 +280,7 @@ def _dosya_ac(yol: str) -> dict:
     if not hedef.is_file():
         return {"hata": "Dosya bulunamadı; taşınmış olabilir."}
     try:
-        os.startfile(str(hedef))                # noqa: S606
+        _ac(hedef)
         return {"tamam": True}
     except OSError as hata:
         return {"hata": str(hata)}
@@ -302,7 +323,7 @@ def _klasor_sec(baslangic: str) -> str:
     try:
         subprocess.run(
             temel + ["--klasor-sec", baslangic, str(cikti)],
-            capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW,
+            capture_output=True, creationflags=_sessiz_bayrak(),
             timeout=300,
         )
         return cikti.read_text("utf-8").strip() if cikti.is_file() else ""
@@ -321,7 +342,7 @@ def _altyazi_baslat(yol: str) -> dict:
     try:
         subprocess.Popen(
             [str(yollar.ALTYAZI_PYTHON), str(yollar.ALTYAZI_ARACI), yol],
-            creationflags=subprocess.CREATE_NO_WINDOW,
+            creationflags=_sessiz_bayrak(),
         )
         return {"tamam": True}
     except OSError as hata:
@@ -332,14 +353,28 @@ def _altyazi_baslat(yol: str) -> dict:
 # Pencere
 # --------------------------------------------------------------------------- #
 
-def _tarayici_ac(adres: str) -> None:
-    adaylar = [
+def _tarayici_adaylari() -> list[Path]:
+    """Uygulama penceresi (`--app`) acabilen tarayicilar."""
+    if yollar.MACOS:
+        # Safari `--app` desteklemiyor; Chrome/Edge varsa cerceve olmadan acilir.
+        return [
+            Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+            Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
+            Path("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"),
+            Path.home() / "Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        ]
+    if not yollar.WINDOWS:
+        return [Path("/usr/bin/google-chrome"), Path("/usr/bin/chromium")]
+    return [
         Path(os.environ.get("PROGRAMFILES(X86)", "")) / "Microsoft/Edge/Application/msedge.exe",
         Path(os.environ.get("PROGRAMFILES", "")) / "Microsoft/Edge/Application/msedge.exe",
         Path(os.environ.get("PROGRAMFILES", "")) / "Google/Chrome/Application/chrome.exe",
         Path(os.environ.get("LOCALAPPDATA", "")) / "Google/Chrome/Application/chrome.exe",
     ]
-    for aday in adaylar:
+
+
+def _tarayici_ac(adres: str) -> None:
+    for aday in _tarayici_adaylari():
         if aday.is_file():
             try:
                 subprocess.Popen([

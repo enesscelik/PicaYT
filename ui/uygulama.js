@@ -665,8 +665,10 @@ function yeniSurumBandi(veri) {
         dugme.disabled = true;
         dugme.textContent = "İndiriliyor…";
         try {
-          await api("/api/uygulama-guncelle", { adres: veri.adres });
-          dugme.textContent = "Kurulum başlıyor…";
+          const s = await api("/api/uygulama-guncelle", { adres: veri.adres });
+          // macOS'ta sessiz kurulum yok; kullanicinin suruklemesi gerekiyor.
+          if (s && s.elle) { dugme.textContent = "Açıldı"; bildir(s.mesaj); }
+          else dugme.textContent = "Kurulum başlıyor…";
         } catch (hata) {
           dugme.disabled = false;
           dugme.textContent = "Güncelle";

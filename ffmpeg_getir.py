@@ -25,8 +25,11 @@ from pathlib import Path
 
 KOK = Path(__file__).resolve().parent
 HEDEF = KOK / "ffmpeg"
-GEREKENLER = ("ffmpeg.exe", "ffprobe.exe")
 BASLIKLAR = {"User-Agent": "PicaYT-build"}
+
+WINDOWS = sys.platform == "win32"
+MACOS = sys.platform == "darwin"
+GEREKENLER = ("ffmpeg.exe", "ffprobe.exe") if WINDOWS else ("ffmpeg", "ffprobe")
 
 # Windows konsolunun varsayilan kod sayfasi (cp1252) Turkce'nin noktasiz
 # "ı" harfini tasimiyor; ciktiyi UTF-8'e sabitlemezsek derleme betikleri
@@ -53,7 +56,36 @@ def _yayindan_sec(depo: str, desen: str) -> str:
     raise LookupError(f"{depo} yayininda {desen} bulunamadi")
 
 
+def _macos_mimari() -> str:
+    import platform
+    return "arm64" if platform.machine().lower() in ("arm64", "aarch64") else "x64"
+
+
+def _tekil_indir(depo: str, ekler: dict[str, str]) -> None:
+    """Zip icermeyen, dogrudan ikili yayinlayan kaynaklar icin."""
+    veri = _json_al(f"https://api.github.com/repos/{depo}/releases/latest")
+    adresler = {v["name"]: v["browser_download_url"] for v in veri.get("assets", [])}
+    HEDEF.mkdir(parents=True, exist_ok=True)
+    for hedef_ad, varlik_ad in ekler.items():
+        if varlik_ad not in adresler:
+            raise LookupError(f"{varlik_ad} bulunamadi")
+        istek = urllib.request.Request(adresler[varlik_ad], headers=BASLIKLAR)
+        with urllib.request.urlopen(istek, timeout=300) as cevap:
+            (HEDEF / hedef_ad).write_bytes(cevap.read())
+        (HEDEF / hedef_ad).chmod(0o755)
+        print(f"  çıkarıldı: {hedef_ad}")
+
+
 def kaynaklar() -> list[tuple[str, callable]]:
+    if MACOS:
+        mim = _macos_mimari()
+        return [(
+            f"eugeneware/ffmpeg-static (darwin-{mim})",
+            lambda: ("__tekil__", {
+                "ffmpeg": f"ffmpeg-darwin-{mim}",
+                "ffprobe": f"ffprobe-darwin-{mim}",
+            }),
+        )]
     return [
         # gyan.dev'in resmi GitHub aynasi — yerelde denenen yapimin ayni surumu
         ("GyanD/codexffmpeg (GitHub)",
@@ -112,11 +144,16 @@ def getir() -> bool:
         print(f"  kaynak: {ad}")
         try:
             adres = adres_bul()
-            print(f"    {adres.rsplit('/', 1)[-1]}")
-            with tempfile.TemporaryDirectory() as gecici:
-                zip_yolu = Path(gecici) / "ffmpeg.zip"
-                indir(adres, zip_yolu)
-                cikanlar = cikar(zip_yolu)
+            # macOS kaynagi zip degil, dogrudan ikili yayinliyor
+            if isinstance(adres, tuple) and adres[0] == "__tekil__":
+                _tekil_indir("eugeneware/ffmpeg-static", adres[1])
+                cikanlar = list(GEREKENLER)
+            else:
+                print(f"    {adres.rsplit('/', 1)[-1]}")
+                with tempfile.TemporaryDirectory() as gecici:
+                    zip_yolu = Path(gecici) / "ffmpeg.zip"
+                    indir(adres, zip_yolu)
+                    cikanlar = cikar(zip_yolu)
             if all(a in cikanlar for a in GEREKENLER):
                 return True
             print(f"    eksik dosya: {set(GEREKENLER) - set(cikanlar)}")

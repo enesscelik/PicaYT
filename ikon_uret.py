@@ -113,6 +113,26 @@ def ico_yaz(hedef: Path) -> Path:
     return hedef
 
 
+# macOS ikon kabi. Anahtarlar Apple'in tur kodlari; hepsi PNG tasiyabilir.
+ICNS_TURLERI = {
+    16: b"icp4", 32: b"icp5", 64: b"icp6",
+    128: b"ic07", 256: b"ic08", 512: b"ic09",
+}
+
+
+def icns_yaz(hedef: Path) -> Path:
+    """macOS .app paketleri .ico kabul etmiyor; ayni cizimden .icns uretir."""
+    govde = bytearray()
+    for boyut, tur in ICNS_TURLERI.items():
+        png = png_yaz(boyut, piksel_uret(boyut))
+        govde += tur + struct.pack(">I", len(png) + 8) + png
+    hedef.write_bytes(b"icns" + struct.pack(">I", len(govde) + 8) + bytes(govde))
+    return hedef
+
+
 if __name__ == "__main__":
-    yol = ico_yaz(KOK / "picayt.ico")
-    print("Ikon yazildi:", yol)
+    import sys
+    if "--icns" in sys.argv:
+        print("Ikon yazildi:", icns_yaz(KOK / "picayt.icns"))
+    else:
+        print("Ikon yazildi:", ico_yaz(KOK / "picayt.ico"))

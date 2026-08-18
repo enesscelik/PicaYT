@@ -116,6 +116,26 @@ def _eski_surumleri_sil(koru: str, adet: int = 2) -> None:
 # PicaYT
 # --------------------------------------------------------------------------- #
 
+def _kendi_kurulumumuz(varliklar: list[dict]) -> dict | None:
+    """Yayindaki dosyalar arasindan bu makineye uyani secer.
+
+    macOS icin Apple Silicon ve Intel ayri .dmg olarak yayinlaniyor; yanlisini
+    indirmek "uygulama acilmiyor" seklinde geri doner.
+    """
+    if yollar.WINDOWS:
+        return next((v for v in varliklar
+                     if v["name"].lower().endswith(".exe")), None)
+    if not yollar.MACOS:
+        return None
+
+    import platform
+    arm = platform.machine().lower() in ("arm64", "aarch64")
+    aranan = "arm64" if arm else "intel"
+    dmgler = [v for v in varliklar if v["name"].lower().endswith(".dmg")]
+    return (next((v for v in dmgler if aranan in v["name"].lower()), None)
+            or (dmgler[0] if len(dmgler) == 1 else None))
+
+
 def uygulama_son_surum(sessiz: bool = True) -> dict:
     """GitHub'daki son yayini dondurur. Yeni surum yoksa bos sozluk.
 
@@ -137,9 +157,7 @@ def uygulama_son_surum(sessiz: bool = True) -> dict:
     if not etiket or yollar.surum_anahtari(etiket) <= yollar.surum_anahtari(yollar.SURUM):
         return {}
 
-    kurulum = next(
-        (v for v in veri.get("assets") or []
-         if v["name"].lower().endswith(".exe")), None)
+    kurulum = _kendi_kurulumumuz(veri.get("assets") or [])
     if not kurulum:
         return {}
 
@@ -160,17 +178,25 @@ def uygulama_guncelle(adres: str) -> dict:
         # Adres yalnizca kendi depomuzdan gelebilir.
         return {"hata": "Beklenmeyen indirme adresi."}
 
-    hedef = yollar.INDIRME_ONBELLEK / "PicaYT-Kurulum.exe"
+    hedef = yollar.INDIRME_ONBELLEK / Path(adres).name
     try:
         _indir(adres, hedef)
     except Exception as hata:                    # noqa: BLE001
         return {"hata": f"İndirme başarısız: {hata}"}
 
     try:
-        subprocess.Popen(
-            [str(hedef), "/SILENT", "/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS"],
-            creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
-        )
+        if yollar.WINDOWS:
+            subprocess.Popen(
+                [str(hedef), "/SILENT", "/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS"],
+                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+            )
+        else:
+            # macOS'ta sessiz kurulum yok: disk kalibi acilir, kullanici
+            # uygulamayi Applications'a surukler.
+            subprocess.Popen(["open", str(hedef)])
+            return {"tamam": True, "elle": True,
+                    "mesaj": "Disk kalıbı açıldı. PicaYT'yi Applications "
+                             "klasörüne sürükleyip paneli yeniden aç."}
     except OSError as hata:
         return {"hata": str(hata)}
 

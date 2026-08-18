@@ -17,13 +17,17 @@ import shutil
 import sys
 from pathlib import Path
 
-SURUM = "1.1.0"
+SURUM = "1.2.0"
 
 # Guncellemelerin cekildigi GitHub deposu. Tek dogruluk kaynagi burasi;
 # guncelleyici.py ve kurulum.iss bunu kullanir.
 GITHUB_DEPO = os.environ.get("PICAYT_DEPO") or "enesscelik/PicaYT"
 
 DONMUS = bool(getattr(sys, "frozen", False))
+
+WINDOWS = sys.platform == "win32"
+MACOS = sys.platform == "darwin"
+UZANTI = ".exe" if WINDOWS else ""      # yardimci ikililerin uzantisi
 
 # Salt okunur kaynaklar (ui/, ikon). Paketlenmis halde gecici cikarma klasoru.
 KAYNAK = Path(getattr(sys, "_MEIPASS", "")) if DONMUS and hasattr(sys, "_MEIPASS") \
@@ -32,8 +36,18 @@ KAYNAK = Path(getattr(sys, "_MEIPASS", "")) if DONMUS and hasattr(sys, "_MEIPASS
 # Uygulamanin kurulu oldugu klasor; ffmpeg burada aranir.
 UYGULAMA = Path(sys.executable).resolve().parent if DONMUS else KAYNAK
 
+
+def _veri_kokü() -> Path:
+    """Her isletim sisteminin kendi kullanici verisi yeri."""
+    if WINDOWS:
+        return Path(os.environ.get("LOCALAPPDATA") or Path.home())
+    if MACOS:
+        return Path.home() / "Library" / "Application Support"
+    return Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local/share"))
+
+
 # Yazilabilir kullanici verisi. Program Files'a kurulsa bile buraya yazilir.
-VERI = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "PicaYT"
+VERI = _veri_kokü() / "PicaYT"
 PAKETLER = VERI / "paketler"          # kendini guncelleyen yt-dlp buraya
 AYAR_DOSYA = VERI / "ayarlar.json"
 GECMIS_DOSYA = VERI / "gecmis.json"
@@ -102,9 +116,26 @@ if _indirilen:
 
 def varsayilan_indirme() -> Path:
     """Ilk calistirmada kullanilacak indirme klasoru."""
-    videolar = Path.home() / "Videos"
-    kok = videolar if videolar.is_dir() else Path.home()
-    return kok / "PicaYT"
+    for ad in ("Movies", "Videos"):      # macOS "Movies", Windows "Videos"
+        aday = Path.home() / ad
+        if aday.is_dir():
+            return aday / "PicaYT"
+    return Path.home() / "PicaYT"
+
+
+def yardimci_kokler() -> list[Path]:
+    """ffmpeg / qjs gibi birlikte gonderilen ikililerin aranacagi klasorler.
+
+    macOS'ta uygulama bir `.app` paketi: calistirilabilir dosya
+    `PicaYT.app/Contents/MacOS/` altinda, kaynaklar ise `Contents/Resources`
+    altinda durur. Windows'ta ikisi de exe'nin yanindadir.
+    """
+    kokler = [UYGULAMA]
+    if MACOS and DONMUS:
+        kokler.append(UYGULAMA.parent / "Resources")
+    if KAYNAK not in kokler:
+        kokler.append(KAYNAK)
+    return kokler
 
 
 # --------------------------------------------------------------------------- #
@@ -127,32 +158,42 @@ def _winget_adaylari() -> list[Path]:
 
 
 def ffmpeg_bul() -> Path | None:
-    """ffmpeg.exe'yi bulur; ffprobe'un da yaninda oldugu bir kurulum arar."""
+    """ffmpeg'i bulur; ffprobe'un da yaninda oldugu bir kurulum tercih edilir."""
+    ad = f"ffmpeg{UZANTI}"
     adaylar: list[Path] = []
 
     ozel = os.environ.get("FFMPEG_PATH")
     if ozel:
         yol = Path(ozel)
-        adaylar.append(yol if yol.suffix else yol / "ffmpeg.exe")
+        adaylar.append(yol if yol.suffix or yol.is_file() else yol / ad)
 
     # Uygulamayla birlikte gelen kopya her zaman once denenir.
-    adaylar.append(UYGULAMA / "ffmpeg" / "ffmpeg.exe")
-    adaylar.append(UYGULAMA / "ffmpeg" / "bin" / "ffmpeg.exe")
+    for kok in yardimci_kokler():
+        adaylar.append(kok / "ffmpeg" / ad)
+        adaylar.append(kok / "ffmpeg" / "bin" / ad)
 
     yolda = shutil.which("ffmpeg")
     if yolda:
         adaylar.append(Path(yolda))
 
-    adaylar += _winget_adaylari()
-    adaylar += [
-        Path("C:/ProgramData/chocolatey/bin/ffmpeg.exe"),
-        Path(os.environ.get("PROGRAMFILES", "")) / "ffmpeg/bin/ffmpeg.exe",
-        Path("C:/ffmpeg/bin/ffmpeg.exe"),
-    ]
+    if WINDOWS:
+        adaylar += _winget_adaylari()
+        adaylar += [
+            Path("C:/ProgramData/chocolatey/bin/ffmpeg.exe"),
+            Path(os.environ.get("PROGRAMFILES", "")) / "ffmpeg/bin/ffmpeg.exe",
+            Path("C:/ffmpeg/bin/ffmpeg.exe"),
+        ]
+    else:
+        # Homebrew (Apple Silicon ve Intel) ile yaygin elle kurulum yerleri
+        adaylar += [
+            Path("/opt/homebrew/bin/ffmpeg"),
+            Path("/usr/local/bin/ffmpeg"),
+            Path("/usr/bin/ffmpeg"),
+        ]
 
     for aday in adaylar:
         try:
-            if aday.is_file() and (aday.parent / "ffprobe.exe").is_file():
+            if aday.is_file() and (aday.parent / f"ffprobe{UZANTI}").is_file():
                 return aday
         except OSError:
             continue
@@ -185,22 +226,23 @@ def ffmpeg_klasor() -> str | None:
 # `yt-dlp-ejs` paketiyle gomulu geliyor, yani internetten ek bir sey indirmeye
 # gerek kalmiyor.
 JS_ADAYLARI = (
-    ("quickjs", "qjs.exe"),
-    ("deno", "deno.exe"),
-    ("node", "node.exe"),
-    ("bun", "bun.exe"),
+    ("quickjs", "qjs"),
+    ("deno", "deno"),
+    ("node", "node"),
+    ("bun", "bun"),
 )
 
 
 def js_calistirici_bul() -> tuple[str, str] | None:
     """(ad, yol) dondurur. Once uygulamayla gelen kopya, sonra sistemdekiler."""
     for ad, dosya in JS_ADAYLARI:
-        gomulu = UYGULAMA / "js" / dosya
-        if gomulu.is_file():
-            return ad, str(gomulu)
+        for kok in yardimci_kokler():
+            gomulu = kok / "js" / f"{dosya}{UZANTI}"
+            if gomulu.is_file():
+                return ad, str(gomulu)
 
     for ad, dosya in JS_ADAYLARI:
-        sistemde = shutil.which(Path(dosya).stem)
+        sistemde = shutil.which(dosya)
         if sistemde:
             return ad, sistemde
     return None
@@ -220,7 +262,9 @@ def js_secenekleri() -> dict:
 # --------------------------------------------------------------------------- #
 
 ALTYAZI_ARACI = Path.home() / "altyazi" / "altyazi.py"
-ALTYAZI_PYTHON = Path.home() / "altyazi" / "venv" / "Scripts" / "pythonw.exe"
+ALTYAZI_PYTHON = (Path.home() / "altyazi" / "venv" / "Scripts" / "pythonw.exe"
+                  if WINDOWS else
+                  Path.home() / "altyazi" / "venv" / "bin" / "python")
 
 
 def altyazi_araci_var() -> bool:

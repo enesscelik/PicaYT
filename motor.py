@@ -460,7 +460,8 @@ class Kuyruk:
             "noprogress": True,
             "noplaylist": True,
             "consoletitle": False,
-            "windowsfilenames": True,
+            # macOS/Linux'ta gereksiz yere karakter kirpmasin
+            "windowsfilenames": yollar.WINDOWS,
             "continuedl": True,
             "retries": 10,
             "fragment_retries": 10,

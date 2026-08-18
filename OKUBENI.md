@@ -1,20 +1,45 @@
 # PicaYT
 
-Windows için yerel YouTube indirme paneli. Kurulum dosyasını çalıştır, masaüstündeki
-**PicaYT** kısayoluna çift tıkla. Python, ffmpeg ya da başka bir şey kurman gerekmez —
-hepsi kurulumun içinde gelir.
+Windows ve macOS için yerel YouTube indirme paneli. Python, ffmpeg ya da başka bir
+şey kurman gerekmez — hepsi kurulumun içinde gelir.
 
 ---
 
 ## Kullanıcı için
 
-### Kurulum
+### Kurulum — Windows
 
 [Releases](https://github.com/enesscelik/PicaYT/releases) sayfasından en son
 `PicaYT-Kurulum-x.y.z.exe` dosyasını indir ve çalıştır. Yönetici hakkı istemez.
 
-> Windows "Bilinmeyen yayımcı" uyarısı verirse **Ek bilgi → Yine de çalıştır** de.
+> "Bilinmeyen yayımcı" uyarısı çıkarsa **Ek bilgi → Yine de çalıştır** de.
 > Kurulum dosyası imzalı olmadığı için normaldir.
+
+### Kurulum — macOS
+
+Doğru dosyayı indir:
+
+| Mac'in | Dosya |
+|---|---|
+| Apple Silicon (M1/M2/M3/M4) | `PicaYT-x.y.z-arm64.dmg` |
+| Intel işlemcili | `PicaYT-x.y.z-intel.dmg` |
+
+Hangisi olduğunu bilmiyorsan:  → **Bu Mac Hakkında**. "Apple M…" yazıyorsa arm64.
+
+Kalıbı aç, **PicaYT**'yi **Applications** klasörüne sürükle.
+
+> **İlk açılışta önemli:** Uygulama imzasız olduğu için macOS
+> *"PicaYT hasarlı, Çöp Kutusu'na taşımalısınız"* diyebilir. Silme —
+> Applications klasöründe PicaYT'ye **sağ tıkla → Aç**, sonra çıkan pencerede
+> yine **Aç** de. Bunu yalnızca bir kez yapman yeterli, sonraki açılışlar normal.
+>
+> Yine de açılmazsa Terminal'de:
+> ```
+> xattr -dr com.apple.quarantine /Applications/PicaYT.app
+> ```
+>
+> Bu uyarı, Apple'ın geliştirici sertifikası (yılda 99 $) alınmadığı için çıkıyor;
+> uygulamada bir sorun olduğu anlamına gelmiyor.
 
 ### Kullanım
 
@@ -59,14 +84,14 @@ YouTube kaynaklı bozulmalar genellikle paneli kapatıp açınca düzelir.
 
 ### Nerede ne tutulur
 
-| Ne | Nerede |
-|---|---|
-| Program | `%LOCALAPPDATA%\Programs\PicaYT` |
-| Ayarlar, geçmiş, güncel yt-dlp | `%LOCALAPPDATA%\PicaYT` |
-| İndirilen dosyalar | Ayarlardan seçilir (varsayılan `Videolar\PicaYT`) |
+| Ne | Windows | macOS |
+|---|---|---|
+| Program | `%LOCALAPPDATA%\Programs\PicaYT` | `/Applications/PicaYT.app` |
+| Ayarlar, geçmiş, yt-dlp | `%LOCALAPPDATA%\PicaYT` | `~/Library/Application Support/PicaYT` |
+| İndirilenler | Ayarlardan seçilir (`Videolar\PicaYT`) | Ayarlardan seçilir (`Movies/PicaYT`) |
 
-Kaldırma: **Ayarlar → Uygulamalar → PicaYT**. İndirdiğin videolar silinmez;
-ayar ve geçmişin silinip silinmeyeceğini kaldırma sırasında sorar.
+Kaldırma — Windows: **Ayarlar → Uygulamalar → PicaYT**. macOS: `PicaYT.app`'i
+Çöp Kutusu'na at. İndirdiğin videolar iki durumda da silinmez.
 
 ---
 
@@ -155,7 +180,10 @@ sistemde kurulu deno/node/bun'a bakar.
 
 ### Bilinen sınırlar
 
-- Kurulum dosyası imzasız — SmartScreen uyarısı çıkar. Kod imzalama sertifikası
-  alınırsa `kurulum.iss` içine `SignTool` eklenebilir.
-- Yalnızca Windows. Sunucu ve arayüz platformdan bağımsız; `os.startfile`,
-  `explorer /select` ve kısayol üretimi Windows'a özgüdür.
+- Kurulum dosyaları imzasız — Windows'ta SmartScreen, macOS'ta Gatekeeper uyarır.
+  Windows için kod imzalama sertifikası alınırsa `kurulum.iss` içine `SignTool`,
+  macOS için Apple Developer hesabıyla `codesign` + `notarytool` eklenebilir.
+- macOS derlemesi Mac'te yapılmak zorunda (PyInstaller çapraz derleme yapamaz).
+  CI bunu `macos-latest` ve `macos-13` sunucularında yapar; elde Mac olması
+  gerekmez, ama Apple Silicon ve Intel için ayrı `.dmg` çıkar.
+- Linux'ta çalışacak şekilde yazıldı ama denenmedi ve paketlenmiyor.
