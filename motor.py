@@ -400,8 +400,9 @@ class Kuyruk:
                 # surede geciyor. Her denemede daha uzun beklenir.
                 bekleme = YENIDEN_BEKLEME[is_.deneme]
                 is_.deneme += 1
-                is_.asama = (f"YouTube geri çevirdi, {bekleme} sn sonra "
-                             f"yeniden denenecek ({is_.deneme}/{len(YENIDEN_BEKLEME)})")
+                sonraki = ISTEMCI_SIRASI[min(is_.deneme, len(ISTEMCI_SIRASI) - 1)]
+                is_.asama = (f"başka yöntemle deneniyor ({sonraki or 'varsayılan'}) "
+                             f"· {is_.deneme}/{len(YENIDEN_BEKLEME)}")
                 is_.yuzde = 0
                 is_.hiz = 0
                 self._bildir(is_)
@@ -493,6 +494,11 @@ class Kuyruk:
         if JS_CALISTIRICI:
             opts["js_runtimes"] = JS_CALISTIRICI
             opts["remote_components"] = []
+
+        # Her yeniden denemede baska bir YouTube istemcisi denenir.
+        istemci = ISTEMCI_SIRASI[min(is_.deneme, len(ISTEMCI_SIRASI) - 1)]
+        if istemci:
+            opts["extractor_args"] = {"youtube": {"player_client": [istemci]}}
         if a["hizSiniri"]:
             opts["ratelimit"] = int(a["hizSiniri"]) * 1024
 
@@ -717,9 +723,18 @@ def _dosya_adi_temizle(ad: str) -> str:
     return re.sub(r'[<>:"/\\|?*]+', "-", ad).strip(" .")[:120] or "liste"
 
 
-# Yeniden deneme aralari (saniye). Hiz kisitlamasi genelde kisa surdugu icin
-# artan bekleme, sabit kisa aralardan cok daha etkili.
-YENIDEN_BEKLEME = (5, 20, 60)
+# YouTube'a baglanirken kullanilacak istemciler, sirayla.
+#
+# yt-dlp'nin varsayilani (android_vr) bir sure sonra 403 vermeye basliyor:
+# YouTube istemci basina kisitlama uyguluyor, cok sayida indirmeden sonra
+# once onu kesiyor. Digerleri ayni anda calismaya devam ediyor. Bu yuzden
+# 403'te beklemek degil, ISTEMCI DEGISTIRMEK cozuyor.
+# None = yt-dlp kendi varsayilan sirasini kullansin.
+ISTEMCI_SIRASI = (None, "mweb", "web_music", "web_embedded")
+
+# Denemeler arasi bekleme. Istemci degistigi icin uzun beklemeye gerek yok;
+# son deneme gercek bir hiz kisitlamasi ihtimaline karsi biraz daha bekler.
+YENIDEN_BEKLEME = (2, 3, 15)
 
 _GECICI = (
     "403", "429", "500", "502", "503", "timed out", "timeout",
